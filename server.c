@@ -44,20 +44,99 @@ int read_conf_file()
     return 0;
 }
 
+char *get_file_content(char *filepath)
+{
+    char fullpath[512];
+    snprintf(fullpath, sizeof(fullpath), "%s/%s", ROOT_DIR, filepath);
+
+    FILE *file = fopen(fullpath, "r");
+    if (!file)
+    {
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    rewind(file);
+
+    char *body = malloc(size + 1);
+    fread(body, 1, size, file);
+    body[size] = '\0';
+    fclose(file);
+    return body;
+}
+
+char *generate_html(char *filepath)
+{
+    char *body = get_file_content(filepath);
+    char *response = NULL;
+    if (!body)
+    {
+        // strdup needed so that the call function can free the response afterward
+        response = strdup("HTTP/1.0 404 ERROR\r\n"
+                          "Content-Length: 27\r\n"
+                          "Content-Type: text/html; charset=utf-8\r\n"
+                          "\r\n"
+                          "<h1>404 FILE NOT FOUND</h1>");
+    }
+    else
+    {
+        size_t needed = snprintf(NULL, 0,
+                                 "HTTP/1.0 200 OK\r\n"
+                                 "Content-Length: %zu\r\n"
+                                 "Content-Type: text/html; charset=utf-8\r\n"
+                                 "\r\n"
+                                 "%s",
+                                 strlen(body), body);
+
+        response = malloc(needed + 1);
+
+        snprintf(response, needed + 1,
+                 "HTTP/1.0 200 OK\r\n"
+                 "Content-Length: %zu\r\n"
+                 "Content-Type: text/html; charset=utf-8\r\n"
+                 "\r\n"
+                 "%s",
+                 strlen(body), body);
+
+        free(body);
+    }
+    return response;
+}
 void *manage_client(void *arg)
 {
     int client_fd = *((int *)arg);
-
-    const char *response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Length: 4\r\n"
-        "Content-Type: text/plain\r\n"
-        "\r\n"
-        "toto";
-
-    send(client_fd, response, strlen(response), 0);
-    close(client_fd);
     free(arg);
+
+    char request[2048];
+    int bytes = recv(client_fd, request, sizeof(request) - 1, 0);
+    if (bytes <= 0)
+    {
+        close(client_fd);
+        return NULL;
+    }
+    request[bytes] = '\0';
+
+    char method[8], raw_path[256];
+    sscanf(request, "%7s %255s", method, raw_path);
+
+    char *path = raw_path;
+    if (path[0] == '/')
+        path++;
+
+    // Handle root request
+    if (strlen(path) == 0)
+        strcpy(path, "index.html");
+
+    char *response = NULL;
+    if (strcmp(method, "GET") == 0)
+    {
+        response = generate_html(path);
+        send(client_fd, response, strlen(response), 0);
+        free(response);
+    }
+
+    close(client_fd);
     return NULL;
 }
 

@@ -44,65 +44,58 @@ int read_conf_file()
     return 0;
 }
 
-char *get_file_content(char *filepath)
+char *get_file_content(char *filepath, size_t *out_size)
 {
     char fullpath[512];
     snprintf(fullpath, sizeof(fullpath), "%s/%s", ROOT_DIR, filepath);
 
-    FILE *file = fopen(fullpath, "r");
+    FILE *file = fopen(fullpath, "rb");
     if (!file)
-    {
         return NULL;
-    }
 
     fseek(file, 0, SEEK_END);
-    size_t size = ftell(file);
+    *out_size = ftell(file);
     rewind(file);
 
-    char *body = malloc(size + 1);
-    fread(body, 1, size, file);
-    body[size] = '\0';
+    char *body = malloc(*out_size);
+    fread(body, 1, *out_size, file);
     fclose(file);
     return body;
 }
 
-char *generate_html(char *filepath)
+const char *get_mime_type(const char *path)
 {
-    char *body = get_file_content(filepath);
-    char *response = NULL;
+    const char *ext = strrchr(path, '.');
+    if (!ext)
+        return "application/octet-stream";
+    if (strcmp(ext, ".html") == 0 || strcmp(ext, ".htm") == 0)
+        return "text/html; charset=utf-8";
+    if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0)
+        return "image/jpeg";
+    if (strcmp(ext, ".png") == 0)
+        return "image/png";
+    if (strcmp(ext, ".gif") == 0)
+        return "image/gif";
+    return "application/octet-stream";
+}
+
+char *generate_html(char *filepath, size_t *out_size, const char **out_mime, const char **status_code)
+{
+    char *body = get_file_content(filepath, out_size);
     if (!body)
     {
-        // strdup needed so that the call function can free the response afterward
-        response = strdup("HTTP/1.0 404 ERROR\r\n"
-                          "Content-Length: 27\r\n"
-                          "Content-Type: text/html; charset=utf-8\r\n"
-                          "\r\n"
-                          "<h1>404 FILE NOT FOUND</h1>");
+
+        const char *notfound = "<h1>404 FILE NOT FOUND</h1>";
+        *status_code = "404 Not Found";
+        *out_size = strlen(notfound);
+        *out_mime = "text/html; charset=utf-8";
+        return strdup(notfound); // strdup needed so caller can free response
     }
-    else
-    {
-        size_t needed = snprintf(NULL, 0,
-                                 "HTTP/1.0 200 OK\r\n"
-                                 "Content-Length: %zu\r\n"
-                                 "Content-Type: text/html; charset=utf-8\r\n"
-                                 "\r\n"
-                                 "%s",
-                                 strlen(body), body);
-
-        response = malloc(needed + 1);
-
-        snprintf(response, needed + 1,
-                 "HTTP/1.0 200 OK\r\n"
-                 "Content-Length: %zu\r\n"
-                 "Content-Type: text/html; charset=utf-8\r\n"
-                 "\r\n"
-                 "%s",
-                 strlen(body), body);
-
-        free(body);
-    }
-    return response;
+    *status_code = "200 OK";
+    *out_mime = get_mime_type(filepath);
+    return body;
 }
+
 void *manage_client(void *arg)
 {
     int client_fd = *((int *)arg);
@@ -124,16 +117,27 @@ void *manage_client(void *arg)
     if (path[0] == '/')
         path++;
 
-    // Handle root request
     if (strlen(path) == 0)
-        strcpy(path, "index.html");
+        strcpy(path, "index.html"); // root request
 
-    char *response = NULL;
     if (strcmp(method, "GET") == 0)
     {
-        response = generate_html(path);
-        send(client_fd, response, strlen(response), 0);
-        free(response);
+        size_t size;
+        const char *mime;
+        const char *status_code;
+        char *body = generate_html(path, &size, &mime, &status_code);
+
+        char header[512];
+
+        int header_len = snprintf(header, sizeof(header),
+                                  "HTTP/1.0 %s\r\n"
+                                  "Content-Length: %zu\r\n"
+                                  "Content-Type: %s\r\n"
+                                  "\r\n",
+                                  status_code, size, mime);
+        send(client_fd, header, header_len, 0);
+        send(client_fd, body, size, 0);
+        free(body);
     }
 
     close(client_fd);

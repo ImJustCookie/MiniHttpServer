@@ -20,6 +20,24 @@ char IP[32];
 char PORT[8];
 char ROOT_DIR[128];
 
+void print_launching_screen()
+{
+    printf("\n");
+    printf("===============================================================\n");
+    printf("           Server Launched!             \n");
+    printf("===============================================================\n");
+    printf(" __  __ _      _ _  _ _   _        ___                      \n");
+    printf("|  \\/  (_)_ _ (_) || | |_| |_ _ __/ __| ___ _ ___ _____ _ _ \n");
+    printf("| |\\/| | | ' \\| | __ |  _|  _| '_ \\__ \\/ -_) '_\\ V / -_) '_|\n");
+    printf("|_|  |_|_|_||_|_|_||_|\\__|\\__| .__/___/\\___|_|  \\_/\\___|_|  \n");
+    printf("                              |_|                             \n");
+    printf("===============================================================\n");
+    printf("IP: %s\n", IP);
+    printf("PORT: %s\n", PORT);
+    printf("ROOT_DIR: %s\n", ROOT_DIR);
+    printf("===============================================================\n");
+}
+
 int read_conf_file()
 {
     char buf[80];
@@ -85,7 +103,17 @@ char *generate_html(char *filepath, size_t *out_size, const char **out_mime, con
     if (!body)
     {
 
-        const char *notfound = "<h1>404 FILE NOT FOUND</h1>";
+        const char *notfound =
+            "<!DOCTYPE html>\n"
+            "<html>\n"
+            "<head>\n"
+            "    <meta charset=\"UTF-8\">\n"
+            "    <title>404 Not Found</title>\n"
+            "</head>\n"
+            "<body>\n"
+            "    <h1>404 Not Found</h1>\n"
+            "</body>\n"
+            "</html>\n";
         *status_code = "404 Not Found";
         *out_size = strlen(notfound);
         *out_mime = "text/html; charset=utf-8";
@@ -153,7 +181,6 @@ int main(void)
     {
         exit(EXIT_FAILURE);
     }
-    printf("IP: %s, PORT: %s, ROOT_DIR: %s\n", IP, PORT, ROOT_DIR);
 
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) // create the server socket
     {
@@ -181,7 +208,7 @@ int main(void)
         perror("listen failed");
         exit(EXIT_FAILURE);
     }
-    printf("Server started on port: %s !\n", PORT);
+    print_launching_screen();
 
     while (1)
     {

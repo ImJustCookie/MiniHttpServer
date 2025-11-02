@@ -1,0 +1,42 @@
+body {
+  text-align: center;
+  font-family: Arial, sans-serif;
+  background-color: #f5deb3;
+  margin-top: 50px;
+  color: #5a3e1b;
+}
+
+h1 {
+  font-size: 2.5em;
+}
+
+#cookie {
+  width: 200px;
+  height: 200px;
+  cursor: pointer;
+  display: block;
+  margin: 30px auto;
+}
+
+#cookie:active {
+  transform: scale(0.9);
+}
+
+#shop {
+  margin-top: 30px;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 1em;
+  border: none;
+  border-radius: 5px;
+  background-color: #8b4513;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #a0522d;
+}

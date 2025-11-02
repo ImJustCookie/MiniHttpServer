@@ -36,6 +36,9 @@ void print_launching_screen()
     printf("PORT: %s\n", PORT);
     printf("ROOT_DIR: %s\n", ROOT_DIR);
     printf("===============================================================\n");
+    printf("===============================================================\n");
+    printf("Running on : http://%s:%s/\n", IP, PORT);
+    printf("===============================================================\n");
 }
 
 int read_conf_file()
